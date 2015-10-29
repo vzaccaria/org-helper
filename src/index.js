@@ -2,6 +2,10 @@ var {
     $d, $o, $f, _, $s, $r, withTmp
 } = require('zaccaria-cli')
 
+var R = require('ramda')
+
+var Table = require('easy-table')
+
 var entry = (filename) => {
     var emit = (o) => {
         console.log(JSON.stringify(o, 0, 4));
@@ -10,6 +14,10 @@ var entry = (filename) => {
 
     var example = (d) => {
         console.log(JSON.stringify(d))
+    }
+
+    var exampleTable = (d) => {
+        console.log(Table.print(_.take(d, 24)));
     }
 
     var histo = (filename, data) => {
@@ -24,18 +32,35 @@ var entry = (filename) => {
         })
     }
 
-
-    var cor = (filename, data) => {
+    var heat = (filename, data, fun, opts ) => {
         var d = data
+        if(_.isUndefined(opts)) {
+            opts = {}
+        }
         return withTmp((scriptName) => {
             JSON.stringify(d).to(scriptName)
-
-            var s = `library(ggplot2); library(reshape2);  library(jsonlite); v <- paste(readLines("${scriptName}"), collapse=" "); v <- fromJSON(v); pdf("${filename}"); print(qplot(x=Var1, y=Var2, data=melt(cor(v)), fill=value, geom="tile")); dev.off(); quit("no"); `;
+            var s = `library(ggplot2)
+            library(reshape2)
+            library(jsonlite)
+            v <- paste(readLines("${scriptName}"), collapse=" ")
+            v <- fromJSON(v)
+            ${ opts.verbose ? 'print(v)' : '1'}
+            pdf("${filename}")
+            print(qplot(x=Var1, y=Var2, data=${fun('v')}, fill=value, geom="tile"))
+            dev.off()
+            quit("no")
+            `;
+            s = s.split('\n').join(';');
             var command = `Rscript --vanilla -e '${s}'`
             return $s.execAsync(command, {
-                silent: true
+                silent: (opts.verbose? false : true)
             });
         })
+    }
+
+
+    var cor = (filename, data) => {
+        return heat(filename, data, (x) => `melt(cor(${x}))`)
     }
 
     var filtEq = (prop, value) => {
@@ -71,9 +96,9 @@ var entry = (filename) => {
 
 
     _.mixin({
-        emitFile, concat, histo, emit, filtEq, filtIndex, getOdd, getEven, cor, example
+        emitFile, concat, histo, emit, filtEq, filtIndex, getOdd, getEven, cor, example, exampleTable, heat
     })
-    return { _, data }
+    return { _, data, R}
 }
 
 module.exports = entry

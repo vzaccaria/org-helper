@@ -19,7 +19,9 @@
   "dependencies": {
     "bluebird": "^2.9.14",
     "debug": "^2.1.3",
+    "easy-table": "^1.0.0",
     "markdox": "^0.1.8",
+    "ramda": "^0.18.0",
     "zaccaria-cli": "0.0.6"
   },
   "devDependencies": {

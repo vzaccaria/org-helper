@@ -10,6 +10,10 @@ var $s = _require.$s;
 var $r = _require.$r;
 var withTmp = _require.withTmp;
 
+var R = require("ramda");
+
+var Table = require("easy-table");
+
 var entry = function (filename) {
     var emit = function (o) {
         console.log(JSON.stringify(o, 0, 4));
@@ -18,6 +22,10 @@ var entry = function (filename) {
 
     var example = function (d) {
         console.log(JSON.stringify(d));
+    };
+
+    var exampleTable = function (d) {
+        console.log(Table.print(_.take(d, 24)));
     };
 
     var histo = function (filename, data) {
@@ -32,16 +40,25 @@ var entry = function (filename) {
         });
     };
 
-    var cor = function (filename, data) {
+    var heat = function (filename, data, fun, opts) {
         var d = data;
+        if (_.isUndefined(opts)) {
+            opts = {};
+        }
         return withTmp(function (scriptName) {
             JSON.stringify(d).to(scriptName);
-
-            var s = "library(ggplot2); library(reshape2);  library(jsonlite); v <- paste(readLines(\"" + scriptName + "\"), collapse=\" \"); v <- fromJSON(v); pdf(\"" + filename + "\"); print(qplot(x=Var1, y=Var2, data=melt(cor(v)), fill=value, geom=\"tile\")); dev.off(); quit(\"no\"); ";
+            var s = "library(ggplot2)\n            library(reshape2)\n            library(jsonlite)\n            v <- paste(readLines(\"" + scriptName + "\"), collapse=\" \")\n            v <- fromJSON(v)\n            " + (opts.verbose ? "print(v)" : "1") + "\n            pdf(\"" + filename + "\")\n            print(qplot(x=Var1, y=Var2, data=" + fun("v") + ", fill=value, geom=\"tile\"))\n            dev.off()\n            quit(\"no\")\n            ";
+            s = s.split("\n").join(";");
             var command = "Rscript --vanilla -e '" + s + "'";
             return $s.execAsync(command, {
-                silent: true
+                silent: opts.verbose ? false : true
             });
+        });
+    };
+
+    var cor = function (filename, data) {
+        return heat(filename, data, function (x) {
+            return "melt(cor(" + x + "))";
         });
     };
 
@@ -81,9 +98,9 @@ var entry = function (filename) {
     };
 
     _.mixin({
-        emitFile: emitFile, concat: concat, histo: histo, emit: emit, filtEq: filtEq, filtIndex: filtIndex, getOdd: getOdd, getEven: getEven, cor: cor, example: example
+        emitFile: emitFile, concat: concat, histo: histo, emit: emit, filtEq: filtEq, filtIndex: filtIndex, getOdd: getOdd, getEven: getEven, cor: cor, example: example, exampleTable: exampleTable, heat: heat
     });
-    return { _: _, data: data };
+    return { _: _, data: data, R: R };
 };
 
 module.exports = entry;
