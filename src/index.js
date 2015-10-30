@@ -20,11 +20,24 @@ var entry = (filename) => {
         console.log(Table.print(_.take(d, 24)));
     }
 
-    var histo = (filename, data) => {
+    var histo = (filename, data, opts) => {
+        if(_.isUndefined(opts)) {
+            opts = {}
+        }
+        var width  = opts.width ? opts.width : '5'
+        var height = opts.height ? opts.height: '5'
+        var labx   = opts.xaxis ? opts.xaxis: 'v'
+        var laby   = opts.yaxis ? opts.yaxis: 'count'
         return withTmp((scriptName) => {
             JSON.stringify(data).to(scriptName)
-
-            var s = `library(ggplot2); library(jsonlite); v <- paste(readLines("${scriptName}"), collapse=" "); v <- fromJSON(v); pdf("${filename}"); print(qplot(v, geom="histogram")); dev.off(); quit("no"); `;
+            var s = `library(ggplot2)
+            library(jsonlite)
+            v <- paste(readLines("${scriptName}"), collapse=" ")
+            v <- fromJSON(v)
+            qplot(v, geom="histogram") + labs(x = "${labx}", y= "${laby}")
+            ggsave("${filename}", width = ${width}, height = ${height}, units = "cm")
+            quit("no") `
+            s = s.split('\n').join(';')
             var command = `Rscript --vanilla -e '${s}'`
             return $s.execAsync(command, {
                 silent: true
@@ -37,17 +50,21 @@ var entry = (filename) => {
         if(_.isUndefined(opts)) {
             opts = {}
         }
+        var width  = opts.width ? opts.width : '5'
+        var height = opts.height ? opts.height: '5'
+        var labx   = opts.xaxis ? opts.xaxis: 'x'
+        var laby   = opts.yaxis ? opts.yaxis: 'y'
         return withTmp((scriptName) => {
             JSON.stringify(d).to(scriptName)
+
             var s = `library(ggplot2)
             library(reshape2)
             library(jsonlite)
             v <- paste(readLines("${scriptName}"), collapse=" ")
             v <- fromJSON(v)
             ${ opts.verbose ? 'print(v)' : '1'}
-            pdf("${filename}")
-            print(qplot(x=Var1, y=Var2, data=${fun('v')}, fill=value, geom="tile"))
-            dev.off()
+            qplot(x=Var1, y=Var2, data=${fun('v')}, fill=value, geom="tile") + labs(x = "${labx}", y= "${laby}")
+            ggsave("${filename}", width = ${width}, height = ${height}, units = "cm")
             quit("no")
             `;
             s = s.split('\n').join(';');
@@ -59,8 +76,8 @@ var entry = (filename) => {
     }
 
 
-    var cor = (filename, data) => {
-        return heat(filename, data, (x) => `melt(cor(${x}))`)
+    var cor = (filename, data, opts) => {
+        return heat(filename, data, (x) => `melt(cor(${x}))`, opts)
     }
 
     var filtEq = (prop, value) => {

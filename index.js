@@ -28,11 +28,18 @@ var entry = function (filename) {
         console.log(Table.print(_.take(d, 24)));
     };
 
-    var histo = function (filename, data) {
+    var histo = function (filename, data, opts) {
+        if (_.isUndefined(opts)) {
+            opts = {};
+        }
+        var width = opts.width ? opts.width : "5";
+        var height = opts.height ? opts.height : "5";
+        var labx = opts.xaxis ? opts.xaxis : "v";
+        var laby = opts.yaxis ? opts.yaxis : "count";
         return withTmp(function (scriptName) {
             JSON.stringify(data).to(scriptName);
-
-            var s = "library(ggplot2); library(jsonlite); v <- paste(readLines(\"" + scriptName + "\"), collapse=\" \"); v <- fromJSON(v); pdf(\"" + filename + "\"); print(qplot(v, geom=\"histogram\")); dev.off(); quit(\"no\"); ";
+            var s = "library(ggplot2)\n            library(jsonlite)\n            v <- paste(readLines(\"" + scriptName + "\"), collapse=\" \")\n            v <- fromJSON(v)\n            qplot(v, geom=\"histogram\") + labs(x = \"" + labx + "\", y= \"" + laby + "\")\n            ggsave(\"" + filename + "\", width = " + width + ", height = " + height + ", units = \"cm\")\n            quit(\"no\") ";
+            s = s.split("\n").join(";");
             var command = "Rscript --vanilla -e '" + s + "'";
             return $s.execAsync(command, {
                 silent: true
@@ -45,9 +52,14 @@ var entry = function (filename) {
         if (_.isUndefined(opts)) {
             opts = {};
         }
+        var width = opts.width ? opts.width : "5";
+        var height = opts.height ? opts.height : "5";
+        var labx = opts.xaxis ? opts.xaxis : "x";
+        var laby = opts.yaxis ? opts.yaxis : "y";
         return withTmp(function (scriptName) {
             JSON.stringify(d).to(scriptName);
-            var s = "library(ggplot2)\n            library(reshape2)\n            library(jsonlite)\n            v <- paste(readLines(\"" + scriptName + "\"), collapse=\" \")\n            v <- fromJSON(v)\n            " + (opts.verbose ? "print(v)" : "1") + "\n            pdf(\"" + filename + "\")\n            print(qplot(x=Var1, y=Var2, data=" + fun("v") + ", fill=value, geom=\"tile\"))\n            dev.off()\n            quit(\"no\")\n            ";
+
+            var s = "library(ggplot2)\n            library(reshape2)\n            library(jsonlite)\n            v <- paste(readLines(\"" + scriptName + "\"), collapse=\" \")\n            v <- fromJSON(v)\n            " + (opts.verbose ? "print(v)" : "1") + "\n            qplot(x=Var1, y=Var2, data=" + fun("v") + ", fill=value, geom=\"tile\") + labs(x = \"" + labx + "\", y= \"" + laby + "\")\n            ggsave(\"" + filename + "\", width = " + width + ", height = " + height + ", units = \"cm\")\n            quit(\"no\")\n            ";
             s = s.split("\n").join(";");
             var command = "Rscript --vanilla -e '" + s + "'";
             return $s.execAsync(command, {
@@ -56,10 +68,10 @@ var entry = function (filename) {
         });
     };
 
-    var cor = function (filename, data) {
+    var cor = function (filename, data, opts) {
         return heat(filename, data, function (x) {
             return "melt(cor(" + x + "))";
-        });
+        }, opts);
     };
 
     var filtEq = function (prop, value) {
