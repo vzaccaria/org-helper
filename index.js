@@ -47,6 +47,28 @@ var entry = function (filename) {
         });
     };
 
+    var box = function (filename, data, fun, opts) {
+        var d = data;
+        if (_.isUndefined(opts)) {
+            opts = {};
+        }
+        var width = opts.width ? opts.width : "5";
+        var height = opts.height ? opts.height : "5";
+        var labx = opts.xaxis ? opts.xaxis : "x";
+        var laby = opts.yaxis ? opts.yaxis : "y";
+        var factor = opts.factor ? opts.factor : "Var2";
+        return withTmp(function (scriptName) {
+            JSON.stringify(d).to(scriptName);
+
+            var s = "library(ggplot2)\n            library(reshape2)\n            library(jsonlite)\n            v <- paste(readLines(\"" + scriptName + "\"), collapse=\" \")\n            v <- fromJSON(v)\n            v <- " + fun("v") + "\n            " + (opts.verbose ? "print(v)" : "1") + "\n            ggplot(data=v, aes(as.factor(" + factor + "), value)) + geom_point(alpha=0.05) + labs(x = \"" + labx + "\", y= \"" + laby + "\")\n            ggsave(\"" + filename + "\", width = " + width + ", height = " + height + ", units = \"cm\")\n            quit(\"no\")\n            ";
+            s = s.split("\n").join(";");
+            var command = "Rscript --vanilla -e '" + s + "'";
+            return $s.execAsync(command, {
+                silent: opts.verbose ? false : true
+            });
+        });
+    };
+
     var heat = function (filename, data, fun, opts) {
         var d = data;
         if (_.isUndefined(opts)) {
@@ -110,7 +132,7 @@ var entry = function (filename) {
     };
 
     _.mixin({
-        emitFile: emitFile, concat: concat, histo: histo, emit: emit, filtEq: filtEq, filtIndex: filtIndex, getOdd: getOdd, getEven: getEven, cor: cor, example: example, exampleTable: exampleTable, heat: heat
+        emitFile: emitFile, concat: concat, histo: histo, emit: emit, filtEq: filtEq, filtIndex: filtIndex, getOdd: getOdd, getEven: getEven, cor: cor, example: example, exampleTable: exampleTable, heat: heat, box: box
     });
     return { _: _, data: data, R: R };
 };

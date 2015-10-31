@@ -45,6 +45,38 @@ var entry = (filename) => {
         })
     }
 
+    var box = (filename, data, fun, opts ) => {
+        var d = data
+        if(_.isUndefined(opts)) {
+            opts = {}
+        }
+        var width  = opts.width ? opts.width : '5'
+        var height = opts.height ? opts.height: '5'
+        var labx   = opts.xaxis ? opts.xaxis: 'x'
+        var laby   = opts.yaxis ? opts.yaxis: 'y'
+        var factor = opts.factor ? opts.factor : 'Var2'
+        return withTmp((scriptName) => {
+            JSON.stringify(d).to(scriptName)
+
+            var s = `library(ggplot2)
+            library(reshape2)
+            library(jsonlite)
+            v <- paste(readLines("${scriptName}"), collapse=" ")
+            v <- fromJSON(v)
+            v <- ${fun('v')}
+            ${ opts.verbose ? 'print(v)' : '1'}
+            ggplot(data=v, aes(as.factor(${factor}), value)) + geom_point(alpha=0.05) + labs(x = "${labx}", y= "${laby}")
+            ggsave("${filename}", width = ${width}, height = ${height}, units = "cm")
+            quit("no")
+            `;
+            s = s.split('\n').join(';');
+            var command = `Rscript --vanilla -e '${s}'`
+            return $s.execAsync(command, {
+                silent: (opts.verbose? false : true)
+            });
+        })
+    }
+
     var heat = (filename, data, fun, opts ) => {
         var d = data
         if(_.isUndefined(opts)) {
@@ -113,7 +145,7 @@ var entry = (filename) => {
 
 
     _.mixin({
-        emitFile, concat, histo, emit, filtEq, filtIndex, getOdd, getEven, cor, example, exampleTable, heat
+        emitFile, concat, histo, emit, filtEq, filtIndex, getOdd, getEven, cor, example, exampleTable, heat, box
     })
     return { _, data, R}
 }
