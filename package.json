@@ -18,10 +18,12 @@
   "homepage": "https://github.com/vzaccaria/org-helper",
   "dependencies": {
     "bluebird": "^2.9.14",
+    "chai": "^3.4.1",
     "debug": "^2.1.3",
     "easy-table": "^1.0.0",
     "markdox": "^0.1.8",
     "ramda": "^0.18.0",
+    "should": "^7.1.1",
     "zaccaria-cli": "0.0.6"
   },
   "devDependencies": {

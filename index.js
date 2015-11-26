@@ -2,22 +2,24 @@
 
 var _require = require("zaccaria-cli");
 
-var $d = _require.$d;
-var $o = _require.$o;
-var $f = _require.$f;
 var _ = _require._;
-var $s = _require.$s;
-var $r = _require.$r;
-var withTmp = _require.withTmp;
+var Promise = _require.Promise;
+
+// FIXME:
+//
+// - move data as first parameter for currying?
 
 var R = require("ramda");
-
 var Table = require("easy-table");
 
+var _require2 = require("./lib/templates.js");
+
+var withR = _require2.withR;
+
+var assert = require("chai").assert;
+
 var entry = function (filename) {
-    var emit = function (o) {
-        console.log(JSON.stringify(o, 0, 4));
-    };
+
     var data = require("" + process.cwd() + "/" + filename);
 
     var example = function (d) {
@@ -28,72 +30,57 @@ var entry = function (filename) {
         console.log(Table.print(_.take(d, 24)));
     };
 
+    var processOpts = function (opts) {
+        var width = _.get(opts, "width", 5);
+        var height = _.get(opts, "height", 5);
+        var xaxis = _.get(opts, "xaxis", "v");
+        var yaxis = _.get(opts, "yaxis", "k");
+        var factor = _.get(opts, "factor", "variable");
+        var verbose = _.get(opts, "verbose", false);
+        return {
+            width: width, height: height, xaxis: xaxis, yaxis: yaxis, factor: factor, verbose: verbose
+        };
+    };
+
     var histo = function (filename, data, opts) {
-        if (_.isUndefined(opts)) {
-            opts = {};
-        }
-        var width = opts.width ? opts.width : "5";
-        var height = opts.height ? opts.height : "5";
-        var labx = opts.xaxis ? opts.xaxis : "v";
-        var laby = opts.yaxis ? opts.yaxis : "count";
-        return withTmp(function (scriptName) {
-            JSON.stringify(data).to(scriptName);
-            var s = "library(ggplot2)\n            library(jsonlite)\n            v <- paste(readLines(\"" + scriptName + "\"), collapse=\" \")\n            v <- fromJSON(v)\n            qplot(v, geom=\"histogram\") + labs(x = \"" + labx + "\", y= \"" + laby + "\")\n            ggsave(\"" + filename + "\", width = " + width + ", height = " + height + ", units = \"cm\")\n            quit(\"no\") ";
-            s = s.split("\n").join(";");
-            var command = "Rscript --vanilla -e '" + s + "'";
-            return $s.execAsync(command, {
-                silent: true
-            });
+        opts = processOpts(opts);
+        return withR(filename, data, opts, function (opts) {
+            return "qplot(v, geom=\"histogram\", binwidth = 1) + labs(x = \"" + opts.xaxis + "\", y= \"" + opts.yaxis + "\")";
         });
     };
 
-    var box = function (filename, data, fun, opts) {
-        var d = data;
-        if (_.isUndefined(opts)) {
-            opts = {};
+    var box = function (filename, data, opts, fun) {
+        /* This expects and array of objects { variable: x, value: y } */
+        /* You can also use melt to preprocess; in that case, you should specify a different factor */
+        if (_.isUndefined(fun)) {
+            fun = function (x) {
+                return x;
+            };
         }
-        var width = opts.width ? opts.width : "5";
-        var height = opts.height ? opts.height : "5";
-        var labx = opts.xaxis ? opts.xaxis : "x";
-        var laby = opts.yaxis ? opts.yaxis : "y";
-        var factor = opts.factor ? opts.factor : "Var2";
-        return withTmp(function (scriptName) {
-            JSON.stringify(d).to(scriptName);
-
-            var s = "library(ggplot2)\n            library(reshape2)\n            library(jsonlite)\n            v <- paste(readLines(\"" + scriptName + "\"), collapse=\" \")\n            v <- fromJSON(v)\n            v <- " + fun("v") + "\n            " + (opts.verbose ? "print(v)" : "1") + "\n            ggplot(data=v, aes(as.factor(" + factor + "), value)) + geom_point(alpha=0.05) + labs(x = \"" + labx + "\", y= \"" + laby + "\")\n            ggsave(\"" + filename + "\", width = " + width + ", height = " + height + ", units = \"cm\")\n            quit(\"no\")\n            ";
-            s = s.split("\n").join(";");
-            var command = "Rscript --vanilla -e '" + s + "'";
-            return $s.execAsync(command, {
-                silent: opts.verbose ? false : true
-            });
+        opts = processOpts(opts);
+        opts.preProcess = fun;
+        return withR(filename, data, opts, function (opts) {
+            return "ggplot(data=v, aes(as.factor(" + opts.factor + "), value)) + geom_point(alpha=0.05) + labs(x = \"" + opts.xaxis + "\", y= \"" + opts.yaxis + "\")";
         });
     };
 
-    var heat = function (filename, data, fun, opts) {
-        var d = data;
-        if (_.isUndefined(opts)) {
-            opts = {};
+    var _heat = function (filename, data, opts, fun) {
+        if (_.isUndefined(fun)) {
+            fun = function (x) {
+                return x;
+            };
         }
-        var width = opts.width ? opts.width : "5";
-        var height = opts.height ? opts.height : "5";
-        var labx = opts.xaxis ? opts.xaxis : "x";
-        var laby = opts.yaxis ? opts.yaxis : "y";
-        return withTmp(function (scriptName) {
-            JSON.stringify(d).to(scriptName);
-
-            var s = "library(ggplot2)\n            library(reshape2)\n            library(jsonlite)\n            v <- paste(readLines(\"" + scriptName + "\"), collapse=\" \")\n            v <- fromJSON(v)\n            " + (opts.verbose ? "print(v)" : "1") + "\n            qplot(x=Var1, y=Var2, data=" + fun("v") + ", fill=value, geom=\"tile\") + labs(x = \"" + labx + "\", y= \"" + laby + "\")\n            ggsave(\"" + filename + "\", width = " + width + ", height = " + height + ", units = \"cm\")\n            quit(\"no\")\n            ";
-            s = s.split("\n").join(";");
-            var command = "Rscript --vanilla -e '" + s + "'";
-            return $s.execAsync(command, {
-                silent: opts.verbose ? false : true
-            });
+        opts = processOpts(opts);
+        opts.preProcess = fun;
+        return withR(filename, data, opts, function (opts) {
+            return "qplot(x=Var1, y=Var2, data=v, fill=value, geom=\"tile\") + labs(x = \"" + opts.xaxis + "\", y= \"" + opts.yaxis + "\")";
         });
     };
 
     var cor = function (filename, data, opts) {
-        return heat(filename, data, function (x) {
+        return _heat(filename, data, opts, function (x) {
             return "melt(cor(" + x + "))";
-        }, opts);
+        });
     };
 
     var filtEq = function (prop, value) {
@@ -127,14 +114,12 @@ var entry = function (filename) {
         return it % 2 === 0;
     });
 
-    var emitFile = function (f) {
-        console.log("file:" + f);
-    };
-
     _.mixin({
-        emitFile: emitFile, concat: concat, histo: histo, emit: emit, filtEq: filtEq, filtIndex: filtIndex, getOdd: getOdd, getEven: getEven, cor: cor, example: example, exampleTable: exampleTable, heat: heat, box: box
+        concat: concat, histo: histo, filtEq: filtEq, filtIndex: filtIndex, getOdd: getOdd, getEven: getEven, cor: cor, example: example, exampleTable: exampleTable, box: box
     });
-    return { _: _, data: data, R: R };
+    return {
+        _: _, data: data, R: R
+    };
 };
 
 module.exports = entry;

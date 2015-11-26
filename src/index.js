@@ -1,118 +1,83 @@
 var {
-    $d, $o, $f, _, $s, $r, withTmp
+    _, Promise
 } = require('zaccaria-cli')
 
-var R = require('ramda')
+// FIXME:
+//
+// - move data as first parameter for currying?
 
-var Table = require('easy-table')
 
-var entry = (filename) => {
-    var emit = (o) => {
-        console.log(JSON.stringify(o, 0, 4));
-    }
-    var data = require(`${process.cwd()}/${filename}`)
+let R = require('ramda')
+let Table = require('easy-table')
+let {
+    withR
+} = require('./lib/templates.js')
+let assert = require('chai').assert
 
-    var example = (d) => {
+
+
+
+let entry = (filename) => {
+
+    let data = require(`${process.cwd()}/${filename}`)
+
+    let example = (d) => {
         console.log(JSON.stringify(d))
     }
 
-    var exampleTable = (d) => {
+    let exampleTable = (d) => {
         console.log(Table.print(_.take(d, 24)));
     }
 
-    var histo = (filename, data, opts) => {
-        if(_.isUndefined(opts)) {
-            opts = {}
+    let processOpts = (opts) => {
+        let width = _.get(opts, 'width', 5);
+        let height = _.get(opts, 'height', 5);
+        let xaxis = _.get(opts, 'xaxis', 'v');
+        let yaxis = _.get(opts, 'yaxis', 'k');
+        let factor = _.get(opts, 'factor', 'variable');
+        let verbose = _.get(opts, 'verbose', false)
+        return {
+            width, height, xaxis, yaxis, factor, verbose
         }
-        var width  = opts.width ? opts.width : '5'
-        var height = opts.height ? opts.height: '5'
-        var labx   = opts.xaxis ? opts.xaxis: 'v'
-        var laby   = opts.yaxis ? opts.yaxis: 'count'
-        return withTmp((scriptName) => {
-            JSON.stringify(data).to(scriptName)
-            var s = `library(ggplot2)
-            library(jsonlite)
-            v <- paste(readLines("${scriptName}"), collapse=" ")
-            v <- fromJSON(v)
-            qplot(v, geom="histogram") + labs(x = "${labx}", y= "${laby}")
-            ggsave("${filename}", width = ${width}, height = ${height}, units = "cm")
-            quit("no") `
-            s = s.split('\n').join(';')
-            var command = `Rscript --vanilla -e '${s}'`
-            return $s.execAsync(command, {
-                silent: true
-            });
+    }
+
+    let histo = (filename, data, opts) => {
+        opts = processOpts(opts)
+        return withR(filename, data, opts, (opts) => {
+            return `qplot(v, geom="histogram", binwidth = 1) + labs(x = "${opts.xaxis}", y= "${opts.yaxis}")`;
         })
     }
 
-    var box = (filename, data, fun, opts ) => {
-        var d = data
-        if(_.isUndefined(opts)) {
-            opts = {}
+    let box = (filename, data, opts, fun) => {
+        /* This expects and array of objects { variable: x, value: y } */
+        /* You can also use melt to preprocess; in that case, you should specify a different factor */
+        if(_.isUndefined(fun)) {
+            fun = (x) => x
         }
-        var width  = opts.width ? opts.width : '5'
-        var height = opts.height ? opts.height: '5'
-        var labx   = opts.xaxis ? opts.xaxis: 'x'
-        var laby   = opts.yaxis ? opts.yaxis: 'y'
-        var factor = opts.factor ? opts.factor : 'Var2'
-        return withTmp((scriptName) => {
-            JSON.stringify(d).to(scriptName)
-
-            var s = `library(ggplot2)
-            library(reshape2)
-            library(jsonlite)
-            v <- paste(readLines("${scriptName}"), collapse=" ")
-            v <- fromJSON(v)
-            v <- ${fun('v')}
-            ${ opts.verbose ? 'print(v)' : '1'}
-            ggplot(data=v, aes(as.factor(${factor}), value)) + geom_point(alpha=0.05) + labs(x = "${labx}", y= "${laby}")
-            ggsave("${filename}", width = ${width}, height = ${height}, units = "cm")
-            quit("no")
-            `;
-            s = s.split('\n').join(';');
-            var command = `Rscript --vanilla -e '${s}'`
-            return $s.execAsync(command, {
-                silent: (opts.verbose? false : true)
-            });
+        opts = processOpts(opts)
+        opts.preProcess = fun
+        return withR(filename, data, opts, (opts) => {
+            return `ggplot(data=v, aes(as.factor(${opts.factor}), value)) + geom_point(alpha=0.05) + labs(x = "${opts.xaxis}", y= "${opts.yaxis}")`;
         })
     }
 
-    var heat = (filename, data, fun, opts ) => {
-        var d = data
-        if(_.isUndefined(opts)) {
-            opts = {}
+    let _heat = (filename, data, opts, fun) => {
+        if(_.isUndefined(fun)) {
+            fun = (x) => x
         }
-        var width  = opts.width ? opts.width : '5'
-        var height = opts.height ? opts.height: '5'
-        var labx   = opts.xaxis ? opts.xaxis: 'x'
-        var laby   = opts.yaxis ? opts.yaxis: 'y'
-        return withTmp((scriptName) => {
-            JSON.stringify(d).to(scriptName)
-
-            var s = `library(ggplot2)
-            library(reshape2)
-            library(jsonlite)
-            v <- paste(readLines("${scriptName}"), collapse=" ")
-            v <- fromJSON(v)
-            ${ opts.verbose ? 'print(v)' : '1'}
-            qplot(x=Var1, y=Var2, data=${fun('v')}, fill=value, geom="tile") + labs(x = "${labx}", y= "${laby}")
-            ggsave("${filename}", width = ${width}, height = ${height}, units = "cm")
-            quit("no")
-            `;
-            s = s.split('\n').join(';');
-            var command = `Rscript --vanilla -e '${s}'`
-            return $s.execAsync(command, {
-                silent: (opts.verbose? false : true)
-            });
+        opts = processOpts(opts)
+        opts.preProcess = fun
+        return withR(filename, data, opts, (opts) => {
+            return `qplot(x=Var1, y=Var2, data=v, fill=value, geom="tile") + labs(x = "${opts.xaxis}", y= "${opts.yaxis}")`;
         })
     }
 
 
-    var cor = (filename, data, opts) => {
-        return heat(filename, data, (x) => `melt(cor(${x}))`, opts)
+    let cor = (filename, data, opts) => {
+        return _heat(filename, data, opts, (x) => `melt(cor(${x}))` )
     }
 
-    var filtEq = (prop, value) => {
+    let filtEq = (prop, value) => {
         return (collection) => {
             return _.filter(collection, (it) => {
                 if (_.isArray(value)) {
@@ -124,11 +89,11 @@ var entry = (filename) => {
         }
     }
 
-    var concat = (a, b) => {
+    let concat = (a, b) => {
         return a.concat(b);
     }
 
-    var filtIndex = (p) => {
+    let filtIndex = (p) => {
         return (collection) => {
             return _.filter(collection, (it, k) => {
                 return (p(k));
@@ -136,18 +101,16 @@ var entry = (filename) => {
         }
     }
 
-    var getOdd = filtIndex((it) => (it % 2) !== 0)
-    var getEven = filtIndex((it) => (it % 2) === 0)
-
-    var emitFile = (f) => {
-        console.log(`file:${f}`)
-    }
+    let getOdd = filtIndex((it) => (it % 2) !== 0)
+    let getEven = filtIndex((it) => (it % 2) === 0)
 
 
     _.mixin({
-        emitFile, concat, histo, emit, filtEq, filtIndex, getOdd, getEven, cor, example, exampleTable, heat, box
+        concat, histo, filtEq, filtIndex, getOdd, getEven, cor, example, exampleTable, box
     })
-    return { _, data, R}
+    return {
+        _, data, R
+    }
 }
 
 module.exports = entry
