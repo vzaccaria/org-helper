@@ -19,8 +19,11 @@ var withR = _require2.withR;
 var assert = require("chai").assert;
 
 var entry = function (filename) {
+    var data = {};
 
-    var data = require("" + process.cwd() + "/" + filename);
+    if (!_.isUndefined(filename)) {
+        data = require("" + process.cwd() + "/" + filename);
+    }
 
     var example = function (d) {
         console.log(JSON.stringify(d));
@@ -61,6 +64,21 @@ var entry = function (filename) {
         opts.preProcess = fun;
         return withR(filename, data, opts, function (opts) {
             return "ggplot(data=v, aes(as.factor(" + opts.factor + "), value)) + geom_point(alpha=0.05) + labs(x = \"" + opts.xaxis + "\", y= \"" + opts.yaxis + "\")";
+        });
+    };
+
+    var dist = function (filename, data, opts, fun) {
+        /* This expects and array of objects { variable: x, value: y } */
+        /* You can also use melt to preprocess; in that case, you should specify a different factor */
+        if (_.isUndefined(fun)) {
+            fun = function (x) {
+                return x;
+            };
+        }
+        opts = processOpts(opts);
+        opts.preProcess = fun;
+        return withR(filename, data, opts, function (opts) {
+            return "ggplot(data=v, aes(fill=" + opts.factor + ", value)) + geom_histogram(binwidth=0.5, position=\"dodge\") + labs(x = \"" + opts.xaxis + "\", y= \"" + opts.yaxis + "\")";
         });
     };
 
@@ -115,7 +133,7 @@ var entry = function (filename) {
     });
 
     _.mixin({
-        concat: concat, histo: histo, filtEq: filtEq, filtIndex: filtIndex, getOdd: getOdd, getEven: getEven, cor: cor, example: example, exampleTable: exampleTable, box: box
+        concat: concat, histo: histo, filtEq: filtEq, filtIndex: filtIndex, getOdd: getOdd, getEven: getEven, cor: cor, example: example, exampleTable: exampleTable, box: box, dist: dist
     });
     return {
         _: _, data: data, R: R

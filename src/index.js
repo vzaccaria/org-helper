@@ -18,8 +18,11 @@ let assert = require('chai').assert
 
 
 let entry = (filename) => {
+    let data = {}
 
-    let data = require(`${process.cwd()}/${filename}`)
+    if(!_.isUndefined(filename)) {
+        data = require(`${process.cwd()}/${filename}`)
+    }
 
     let example = (d) => {
         console.log(JSON.stringify(d))
@@ -58,6 +61,19 @@ let entry = (filename) => {
         opts.preProcess = fun
         return withR(filename, data, opts, (opts) => {
             return `ggplot(data=v, aes(as.factor(${opts.factor}), value)) + geom_point(alpha=0.05) + labs(x = "${opts.xaxis}", y= "${opts.yaxis}")`;
+        })
+    }
+
+    let dist = (filename, data, opts, fun) => {
+        /* This expects and array of objects { variable: x, value: y } */
+        /* You can also use melt to preprocess; in that case, you should specify a different factor */
+        if(_.isUndefined(fun)) {
+            fun = (x) => x
+        }
+        opts = processOpts(opts)
+        opts.preProcess = fun
+        return withR(filename, data, opts, (opts) => {
+            return `ggplot(data=v, aes(fill=${opts.factor}, value)) + geom_histogram(binwidth=0.5, position="dodge") + labs(x = "${opts.xaxis}", y= "${opts.yaxis}")`;
         })
     }
 
@@ -106,7 +122,7 @@ let entry = (filename) => {
 
 
     _.mixin({
-        concat, histo, filtEq, filtIndex, getOdd, getEven, cor, example, exampleTable, box
+        concat, histo, filtEq, filtIndex, getOdd, getEven, cor, example, exampleTable, box, dist
     })
     return {
         _, data, R
