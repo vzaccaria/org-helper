@@ -67,6 +67,21 @@ var entry = function (filename) {
         });
     };
 
+    var boxPlot = function (filename, data, opts, fun) {
+        /* This expects and array of objects { variable: x, value: y } */
+        /* You can also use melt to preprocess; in that case, you should specify a different factor */
+        if (_.isUndefined(fun)) {
+            fun = function (x) {
+                return x;
+            };
+        }
+        opts = processOpts(opts);
+        opts.preProcess = fun;
+        return withR(filename, data, opts, function (opts) {
+            return "ggplot(data=v, aes(as.factor(" + opts.factor + "), value)) + geom_boxplot() + labs(x = \"" + opts.xaxis + "\", y= \"" + opts.yaxis + "\")";
+        });
+    };
+
     var dist = function (filename, data, opts, fun) {
         /* This expects and array of objects { variable: x, value: y } */
         /* You can also use melt to preprocess; in that case, you should specify a different factor */
@@ -79,6 +94,21 @@ var entry = function (filename) {
         opts.preProcess = fun;
         return withR(filename, data, opts, function (opts) {
             return "ggplot(data=v, aes(fill=" + opts.factor + ", value)) + geom_histogram(binwidth=0.5, position=\"dodge\") + labs(x = \"" + opts.xaxis + "\", y= \"" + opts.yaxis + "\")";
+        });
+    };
+
+    var dens = function (filename, data, opts, fun) {
+        /* This expects and array of objects { variable: x, value: y } */
+        /* You can also use melt to preprocess; in that case, you should specify a different factor */
+        if (_.isUndefined(fun)) {
+            fun = function (x) {
+                return x;
+            };
+        }
+        opts = processOpts(opts);
+        opts.preProcess = fun;
+        return withR(filename, data, opts, function (opts) {
+            return "ggplot(data=v, aes(fill=" + opts.factor + ",colour=" + opts.factor + ", value)) + geom_density(alpha=0.1) + labs(x = \"" + opts.xaxis + "\", y= \"" + opts.yaxis + "\")";
         });
     };
 
@@ -120,7 +150,7 @@ var entry = function (filename) {
     var filtIndex = function (p) {
         return function (collection) {
             return _.filter(collection, function (it, k) {
-                return p(k);
+                return p(k);;
             });
         };
     };
@@ -133,7 +163,7 @@ var entry = function (filename) {
     });
 
     _.mixin({
-        concat: concat, histo: histo, filtEq: filtEq, filtIndex: filtIndex, getOdd: getOdd, getEven: getEven, cor: cor, example: example, exampleTable: exampleTable, box: box, dist: dist
+        concat: concat, histo: histo, filtEq: filtEq, filtIndex: filtIndex, getOdd: getOdd, getEven: getEven, cor: cor, example: example, exampleTable: exampleTable, box: box, dist: dist, boxPlot: boxPlot, dens: dens
     });
     return {
         _: _, data: data, R: R
